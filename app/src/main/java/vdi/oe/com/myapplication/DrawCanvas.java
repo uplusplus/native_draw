@@ -7,6 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
+import android.graphics.Rect;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
@@ -64,29 +65,30 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
 
         fps = new CFPSMaker();
         fps_udpate = new CFPSMaker();
+
+        bmp = Bitmap.createBitmap(1920, 1080, Bitmap.Config.ARGB_8888);
+        setBitmap(bmp);
     }
 
     @Override
     protected void finalize() throws Throwable {
         nativeFree();
+        if(bmp != null) {
+            bmp.recycle();
+            bmp = null;
+        }
         super.finalize();
     }
 
+    int surfaceWidth, surfaceHeight;
+    Rect rect = new Rect();
+
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        Bitmap old = bmp;
-
-        bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        for(int y=0; y<height; y++)
-            for(int x=0; x<width; x++)
-                bmp.setPixel(x, y, Color.BLUE);
-
-        setBitmap(bmp);
-
-        if(old != null) {
-            old.recycle();
-        }
-
+        surfaceWidth = width;
+        surfaceHeight = height;
+        setBitmapSize(surfaceWidth, surfaceHeight);
+        rect.set(0,0, surfaceWidth, surfaceHeight);
     }
 
     @Override
@@ -99,10 +101,6 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
         isDraw = false;
-        if(bmp != null) {
-            bmp.recycle();
-            bmp = null;
-        }
     }
 
     private String update_fps = "0";
@@ -159,7 +157,7 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     private void drawCanvas(Canvas canvas) {
         // 在 canvas 上绘制需要的图形
         if(bmp != null)
-            canvas.drawBitmap(bmp, 0, 0, p);
+            canvas.drawBitmap(bmp, rect, rect, p);
         fps.makeFPS();
         canvas.drawText(fps.getFPS(), 200,200, p);
         canvas.drawText(update_fps, 600, 200, p);
@@ -173,5 +171,6 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     private native int nativeInit();
     private native int nativeFree();
     public  native int setBitmap(Bitmap bmp);
+    public native int setBitmapSize(int width, int height);
     public native int updateBitmap();
 }

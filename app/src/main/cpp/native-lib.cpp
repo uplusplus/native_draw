@@ -34,6 +34,7 @@ static pthread_mutex_t mutex;
 static jobject gObjBitmap= NULL;
 static AndroidBitmapInfo info = {0};
 static void * pixels = NULL;
+static int surface_width = 1920, surface_height=1080;
 
 
 extern "C"
@@ -90,36 +91,36 @@ Java_vdi_oe_com_myapplication_DrawCanvas_nativeFree(JNIEnv *env, jobject) {
     return 0;
 }
 
-static void lock_bitmap(JNIEnv* env){
-    //lock
-    if (0 != pthread_mutex_lock(&mutex)) {
-        //异常
-        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
-        //抛出
-        env->ThrowNew(exceptionClazz, "Unable to lock mutex--");
-        return;
-    }
-
-}
-
-static void unlock_bitmap(JNIEnv* env){
-    //unlock
-    if (0 != pthread_mutex_unlock(&mutex)) {
-        //异常
-        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
-        //抛出
-        env->ThrowNew(exceptionClazz, "Unable to unlock mutex--");
-
-    }
-}
+//static void lock_bitmap(JNIEnv* env){
+//    //lock
+//    if (0 != pthread_mutex_lock(&mutex)) {
+//        //异常
+//        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
+//        //抛出
+//        env->ThrowNew(exceptionClazz, "Unable to lock mutex--");
+//        return;
+//    }
+//
+//}
+//
+//static void unlock_bitmap(JNIEnv* env){
+//    //unlock
+//    if (0 != pthread_mutex_unlock(&mutex)) {
+//        //异常
+//        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
+//        //抛出
+//        env->ThrowNew(exceptionClazz, "Unable to unlock mutex--");
+//
+//    }
+//}
 
 static __inline void drawPixels(){
     if(pixels) {
         int x = 0, y = 0;
         // From top to bottom
-        for (y = 0; y < info.height; ++y) {
+        for (y = 0; y < surface_height; ++y) {
             // From left to right
-            for (x = 0; x < info.width; ++x) {
+            for (x = 0; x < surface_width; ++x) {
                 int a = 255, r = 0, g = 255, b = 0;
                 void *pixel = NULL;
                 // Get each pixel by format
@@ -153,8 +154,6 @@ Java_vdi_oe_com_myapplication_DrawCanvas_setBitmap(
         return -1;
     }
 
-    lock_bitmap(env);
-
     // Get bitmap info
     memset(&info, 0, sizeof(info));
     AndroidBitmap_getInfo(env, zBitmap, &info);
@@ -176,11 +175,22 @@ Java_vdi_oe_com_myapplication_DrawCanvas_setBitmap(
 
     LOGD("Effect: %dx%d, %d\n", info.width, info.height, info.format);
 
-    unlock_bitmap(env);
-
     return 0;
 }
 
+
+extern "C"
+jint
+Java_vdi_oe_com_myapplication_DrawCanvas_setBitmapSize(
+        JNIEnv *env,
+        jobject  /*this*/,
+        jint w, jint h) {
+    surface_width = w<=info.width?w:info.width;
+    surface_height = h<=info.height?h:info.height;
+
+    LOGD("new size: %dx%d", surface_width, surface_width);
+    return 0;
+}
 
 extern "C"
 jint
@@ -188,10 +198,6 @@ Java_vdi_oe_com_myapplication_DrawCanvas_updateBitmap(
         JNIEnv *env,
         jobject  /*this*/) {
 
-    lock_bitmap(env);
-
     drawPixels();
-
-    unlock_bitmap(env);
     return 0;
 }
