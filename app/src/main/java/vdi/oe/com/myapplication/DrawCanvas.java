@@ -184,4 +184,8 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     public  native int setBitmap(Bitmap bmp);
     public native int setBitmapSize(int width, int height);
     public native int updateBitmap();
+
+    static {
+        System.loadLibrary("native-lib");
+    }
 }
