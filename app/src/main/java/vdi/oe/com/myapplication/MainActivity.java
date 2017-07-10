@@ -18,9 +18,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Example of a call to a native method
-        SurfaceView tv = (SurfaceView) findViewById(R.id.surfaceView);
-
     }
 
     /**

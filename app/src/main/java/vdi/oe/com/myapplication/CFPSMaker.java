@@ -24,7 +24,7 @@ public class CFPSMaker
     /**
      * 设定动画运行多少帧后统计一次帧数
      */
-    public static final int FPS = 8;
+    public static final int FPS = 50;
 
     /**
      * 换算为运行周期

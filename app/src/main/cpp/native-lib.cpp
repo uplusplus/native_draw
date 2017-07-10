@@ -88,15 +88,16 @@ Java_vdi_oe_com_myapplication_DrawCanvas_nativeFree(JNIEnv *env, jobject) {
     return 0;
 }
 
-
+int count_i = 0;
 static __inline void drawPixels(){
     if(pixels) {
         int x = 0, y = 0;
+        int a = 255, r = 0, g = 0, b = count_i++;
+
         // From top to bottom
         for (y = 0; y < surface_height; ++y) {
             // From left to right
             for (x = 0; x < surface_width; ++x) {
-                int a = 255, r = 0, g = 255, b = 0;
                 void *pixel = NULL;
                 // Get each pixel by format
                 if (info.format == ANDROID_BITMAP_FORMAT_RGB_565) {
@@ -163,7 +164,7 @@ Java_vdi_oe_com_myapplication_DrawCanvas_setBitmapSize(
     surface_width = w<=info.width?w:info.width;
     surface_height = h<=info.height?h:info.height;
 
-    LOGD("new size: %dx%d", surface_width, surface_width);
+    LOGD("new size: %dx%d", surface_width, surface_height);
     return 0;
 }
 
