@@ -6,6 +6,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
@@ -49,7 +50,10 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     private void init(Context context){
+        nativeInit();
+
         holder = this.getHolder();
+        holder.setFormat(PixelFormat.RGBA_8888);
         holder.addCallback(this);
 
         updateThread = new UpdateThread();
@@ -63,17 +67,26 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     }
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    protected void finalize() throws Throwable {
+        nativeFree();
+        super.finalize();
+    }
 
-        if(bmp != null) {
-            bmp.recycle();
-            bmp = null;
-        }
+    @Override
+    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+        Bitmap old = bmp;
 
         bmp = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
         for(int y=0; y<height; y++)
             for(int x=0; x<width; x++)
                 bmp.setPixel(x, y, Color.BLUE);
+
+        setBitmap(bmp);
+
+        if(old != null) {
+            old.recycle();
+        }
+
     }
 
     @Override
@@ -92,17 +105,16 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
         }
     }
 
-    private String udpate_fps = "0";
+    private String update_fps = "0";
     private class UpdateThread extends Thread {
         @Override
         public void run() {
             fps_udpate.setTime(System.nanoTime());
             // 不停绘制界面
             while (isDraw) {
-                if(bmp != null)
-                    setBitmap(bmp);
+                updateBitmap();
                 fps_udpate.makeFPS();
-                udpate_fps = fps_udpate.getFPS();
+                update_fps = fps_udpate.getFPS();
             }
             super.run();
         }
@@ -150,9 +162,16 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
             canvas.drawBitmap(bmp, 0, 0, p);
         fps.makeFPS();
         canvas.drawText(fps.getFPS(), 200,200, p);
-        canvas.drawText(udpate_fps, 600, 200, p);
+        canvas.drawText(update_fps, 600, 200, p);
         count++;
     }
 
+    private void onNativeMessage(final String message) {
+
+    }
+
+    private native int nativeInit();
+    private native int nativeFree();
     public  native int setBitmap(Bitmap bmp);
+    public native int updateBitmap();
 }

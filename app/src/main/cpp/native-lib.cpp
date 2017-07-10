@@ -27,6 +27,120 @@ Java_vdi_oe_com_myapplication_MainActivity_stringFromJNI(
 }
 
 
+static jmethodID gOnNativeMessage = NULL;
+static jobject gObj = NULL;
+
+static pthread_mutex_t mutex;
+static jobject gObjBitmap= NULL;
+static AndroidBitmapInfo info = {0};
+static void * pixels = NULL;
+
+
+extern "C"
+jint
+Java_vdi_oe_com_myapplication_DrawCanvas_nativeInit(JNIEnv *env, jobject obj) {
+
+    //初始化互斥量
+    if (0 != pthread_mutex_init(&mutex, NULL)) {
+        //异常
+        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
+        //抛出
+        env->ThrowNew(exceptionClazz, "Unable to init mutex--");
+    }
+
+    if (NULL == gObj) {
+        gObj = env->NewGlobalRef(obj);
+    }
+
+    //初始java回调
+    if (NULL == gOnNativeMessage) {
+        jclass clazz = env->GetObjectClass(obj);
+        gOnNativeMessage = env->GetMethodID(clazz, "onNativeMessage",
+                                            "(Ljava/lang/String;)V");
+
+        if (NULL == gOnNativeMessage) {
+            //异常
+            jclass exceptionClazz = env->FindClass(
+                    "java/lang/RuntimeException");
+            //抛出
+            env->ThrowNew(exceptionClazz, "Unable to find method--");
+        }
+    }
+    return 0;
+}
+
+extern "C"
+jint
+Java_vdi_oe_com_myapplication_DrawCanvas_nativeFree(JNIEnv *env, jobject) {
+
+    //释放全局变量
+    if (NULL != gObj) {
+        env->DeleteGlobalRef(gObj);
+        gObj = NULL;
+    }
+
+    //释放互斥量
+    if (0 != pthread_mutex_destroy(&mutex)) {
+        //异常
+        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
+        //抛出
+        env->ThrowNew(exceptionClazz, "Unable to destroy mutex--");
+    }
+
+    return 0;
+}
+
+static void lock_bitmap(JNIEnv* env){
+    //lock
+    if (0 != pthread_mutex_lock(&mutex)) {
+        //异常
+        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
+        //抛出
+        env->ThrowNew(exceptionClazz, "Unable to lock mutex--");
+        return;
+    }
+
+}
+
+static void unlock_bitmap(JNIEnv* env){
+    //unlock
+    if (0 != pthread_mutex_unlock(&mutex)) {
+        //异常
+        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
+        //抛出
+        env->ThrowNew(exceptionClazz, "Unable to unlock mutex--");
+
+    }
+}
+
+static __inline void drawPixels(){
+    if(pixels) {
+        int x = 0, y = 0;
+        // From top to bottom
+        for (y = 0; y < info.height; ++y) {
+            // From left to right
+            for (x = 0; x < info.width; ++x) {
+                int a = 255, r = 0, g = 255, b = 0;
+                void *pixel = NULL;
+                // Get each pixel by format
+                if (info.format == ANDROID_BITMAP_FORMAT_RGB_565) {
+                    pixel = ((uint16_t *) pixels) + y * info.width + x;
+
+                } else {// RGBA
+                    pixel = ((uint32_t *) pixels) + y * info.width + x;
+                }
+
+                // Write the pixel back
+                if (info.format == ANDROID_BITMAP_FORMAT_RGB_565) {
+                    *((uint16_t *) pixel) = MAKE_RGB565(b, g, r);
+                } else {// RGBA
+                    *((uint32_t *) pixel) = MAKE_RGBA(b, g, r, a);
+                }
+            }
+        }
+    }
+}
+
 extern "C"
 jint
 Java_vdi_oe_com_myapplication_DrawCanvas_setBitmap(
@@ -39,8 +153,9 @@ Java_vdi_oe_com_myapplication_DrawCanvas_setBitmap(
         return -1;
     }
 
+    lock_bitmap(env);
+
     // Get bitmap info
-    AndroidBitmapInfo info;
     memset(&info, 0, sizeof(info));
     AndroidBitmap_getInfo(env, zBitmap, &info);
     // Check format, only RGB565 & RGBA are supported
@@ -52,7 +167,6 @@ Java_vdi_oe_com_myapplication_DrawCanvas_setBitmap(
     }
 
     // Lock the bitmap to get the buffer
-    void * pixels = NULL;
     int res = AndroidBitmap_lockPixels(env, zBitmap, &pixels);
     if (pixels == NULL) {
         LOGE("fail to lock bitmap: %d\n", res);
@@ -60,44 +174,24 @@ Java_vdi_oe_com_myapplication_DrawCanvas_setBitmap(
         return -1;
     }
 
-    LOGD("Effect: %dx%d, %d pixels:%p\n", info.width, info.height, info.format, pixels);
+    LOGD("Effect: %dx%d, %d\n", info.width, info.height, info.format);
+
+    unlock_bitmap(env);
+
+    return 0;
+}
 
 
-    int x = 0, y = 0;
-    // From top to bottom
-    for (y = 0; y < info.height; ++y) {
-        // From left to right
-        for (x = 0; x < info.width; ++x) {
-            int a = 255, r = 0, g = 255, b = 0;
-            void *pixel = NULL;
-            // Get each pixel by format
-            if (info.format == ANDROID_BITMAP_FORMAT_RGB_565) {
-                pixel = ((uint16_t *)pixels) + y * info.width + x;
-//                uint16_t v = *(uint16_t *)pixel;
-//                r = RGB565_R(v);
-//                g = RGB565_G(v);
-//                b = RGB565_B(v);
-            } else {// RGBA
-                pixel = ((uint32_t *)pixels) + y * info.width + x;
-//                uint32_t v = *(uint32_t *)pixel;
-//                a = RGBA_A(v);
-//                r = RGBA_R(v);
-//                g = RGBA_G(v);
-//                b = RGBA_B(v);
-            }
+extern "C"
+jint
+Java_vdi_oe_com_myapplication_DrawCanvas_updateBitmap(
+        JNIEnv *env,
+        jobject  /*this*/) {
 
-            // Grayscale
-//            int gray = (r * 38 + g * 75 + b * 15) >> 7;
+    lock_bitmap(env);
 
-            // Write the pixel back
-            if (info.format == ANDROID_BITMAP_FORMAT_RGB_565) {
-                *((uint16_t *)pixel) = MAKE_RGB565(b, g, r);
-            } else {// RGBA
-                *((uint32_t *)pixel) = MAKE_RGBA(b, g, r, a);
-            }
-        }
-    }
+    drawPixels();
 
-    AndroidBitmap_unlockPixels(env, zBitmap);
-    return 1;
+    unlock_bitmap(env);
+    return 0;
 }
