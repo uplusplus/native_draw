@@ -9,6 +9,7 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.os.Build;
+import android.os.Handler;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -25,6 +26,7 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     private boolean isDraw = false;// 控制绘制的开关
     Bitmap bmp = null;
     Paint p = new Paint();
+    private Handler handler = new Handler();
 
 
     CFPSMaker fps, fps_udpate;
@@ -95,7 +97,7 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
     public void surfaceCreated(SurfaceHolder holder) {
         isDraw = true;
         updateThread.start();
-        renderThread.start();
+//        renderThread.start();
     }
 
     @Override
@@ -166,6 +168,15 @@ public class DrawCanvas extends SurfaceView implements SurfaceHolder.Callback {
 
     private void onNativeMessage(final String message) {
 
+    }
+
+    private void onUpdateBitmap(){
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                drawUI();
+            }
+        });
     }
 
     private native int nativeInit();

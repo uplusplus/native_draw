@@ -28,9 +28,9 @@ Java_vdi_oe_com_myapplication_MainActivity_stringFromJNI(
 
 
 static jmethodID gOnNativeMessage = NULL;
+static jmethodID gOnUpdateBitmap = NULL;
 static jobject gObj = NULL;
 
-static pthread_mutex_t mutex;
 static jobject gObjBitmap= NULL;
 static AndroidBitmapInfo info = {0};
 static void * pixels = NULL;
@@ -40,14 +40,6 @@ static int surface_width = 1920, surface_height=1080;
 extern "C"
 jint
 Java_vdi_oe_com_myapplication_DrawCanvas_nativeInit(JNIEnv *env, jobject obj) {
-
-    //初始化互斥量
-    if (0 != pthread_mutex_init(&mutex, NULL)) {
-        //异常
-        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
-        //抛出
-        env->ThrowNew(exceptionClazz, "Unable to init mutex--");
-    }
 
     if (NULL == gObj) {
         gObj = env->NewGlobalRef(obj);
@@ -60,6 +52,19 @@ Java_vdi_oe_com_myapplication_DrawCanvas_nativeInit(JNIEnv *env, jobject obj) {
                                             "(Ljava/lang/String;)V");
 
         if (NULL == gOnNativeMessage) {
+            //异常
+            jclass exceptionClazz = env->FindClass(
+                    "java/lang/RuntimeException");
+            //抛出
+            env->ThrowNew(exceptionClazz, "Unable to find method--");
+        }
+    }
+    if (NULL == gOnUpdateBitmap) {
+        jclass clazz = env->GetObjectClass(obj);
+        gOnUpdateBitmap = env->GetMethodID(clazz, "onUpdateBitmap",
+                                            "()V");
+
+        if (NULL == gOnUpdateBitmap) {
             //异常
             jclass exceptionClazz = env->FindClass(
                     "java/lang/RuntimeException");
@@ -80,39 +85,9 @@ Java_vdi_oe_com_myapplication_DrawCanvas_nativeFree(JNIEnv *env, jobject) {
         gObj = NULL;
     }
 
-    //释放互斥量
-    if (0 != pthread_mutex_destroy(&mutex)) {
-        //异常
-        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
-        //抛出
-        env->ThrowNew(exceptionClazz, "Unable to destroy mutex--");
-    }
-
     return 0;
 }
 
-//static void lock_bitmap(JNIEnv* env){
-//    //lock
-//    if (0 != pthread_mutex_lock(&mutex)) {
-//        //异常
-//        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
-//        //抛出
-//        env->ThrowNew(exceptionClazz, "Unable to lock mutex--");
-//        return;
-//    }
-//
-//}
-//
-//static void unlock_bitmap(JNIEnv* env){
-//    //unlock
-//    if (0 != pthread_mutex_unlock(&mutex)) {
-//        //异常
-//        jclass exceptionClazz = env->FindClass("java/lang/RuntimeException");
-//        //抛出
-//        env->ThrowNew(exceptionClazz, "Unable to unlock mutex--");
-//
-//    }
-//}
 
 static __inline void drawPixels(){
     if(pixels) {
@@ -196,8 +171,10 @@ extern "C"
 jint
 Java_vdi_oe_com_myapplication_DrawCanvas_updateBitmap(
         JNIEnv *env,
-        jobject  /*this*/) {
+        jobject obj) {
 
     drawPixels();
+
+    env->CallVoidMethod(obj, gOnUpdateBitmap);
     return 0;
 }
